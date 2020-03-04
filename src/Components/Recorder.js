@@ -1,6 +1,6 @@
 import InlineWorker from 'inline-worker';
 
-class Recorder {
+export class Recorder {
     config = {
         bufferLen: 4096,
         numChannels: 2,
@@ -16,7 +16,7 @@ class Recorder {
         exportWAV: []
     };
 
-    constructor(cfg) {
+    constructor(source, cfg) {
 
 
         try {
@@ -34,21 +34,12 @@ class Recorder {
 
         });
 
-    }
 
-    mergeBuffers=(recBuffers, recLength) =>{
-        let result = new Float32Array(recLength);
-        let offset = 0;
-        for (let i = 0; i < recBuffers.length; i++) {
-            result.set(recBuffers[i], offset);
-            offset += recBuffers[i].length;
-        }
-        return result;
+
     }
 
 
     startUserMedia=(stream,cfg)=>{
-        console.log(cfg);
         this.source = this.audio_context.createMediaStreamSource(stream);
         Object.assign(this.config, cfg);
         this.context = this.source.context;
@@ -59,37 +50,15 @@ class Recorder {
         this.node.onaudioprocess = (e) => {
             if (!this.recording) return;
 
-            let buffer = [];
-            for (let channel = 0; channel < this.config.numChannels; channel++) {
+            var buffer = [];
+            for (var channel = 0; channel < this.config.numChannels; channel++) {
                 buffer.push(e.inputBuffer.getChannelData(channel));
             }
-
-            let recLength = 0, recBuffers = [];
-            for (let channel = 0; channel < this.config.numChannels; channel++) {
-                recBuffers[channel] = [];
-            }
-            for (var channel = 0; channel < this.config.numChannels; channel++) {
-                recBuffers[channel].push(buffer[channel]);
-            }
-            recLength += buffer[0].length;
-
-
-
-            let buffers = [];
-            for (let channel = 0; channel < this.config.numChannels; channel++) {
-                buffers.push(this.mergeBuffers(recBuffers[channel], recLength));
-            }
-
-            //
-            // let buffers = [];
-            // for (let channel = 0; channel < this.config.numChannels; channel++) {
-            //     buffers.push(this.config.numChannels(recBuffers[channel], recLength));
-            // }
-
-            this.config.dataAvailable(buffers)
-
-
-
+            this.worker.postMessage({
+                command: 'record',
+                buffer: buffer,
+                mimeType: this.config.mimeType
+            });
         };
 
         this.source.connect(this.node);
@@ -97,7 +66,6 @@ class Recorder {
 
         let self = {};
         this.worker = new InlineWorker(function () {
-            console.log(4)
             let recLength = 0,
                 dataAvailable=null,
                 recBuffers = [],
@@ -105,7 +73,6 @@ class Recorder {
                 numChannels;
 
             this.onmessage = function (e) {
-                console.log(e)
                 switch (e.data.command) {
                     case 'init':
                         init(e.data.config);
@@ -133,18 +100,14 @@ class Recorder {
             }
 
             function record(inputBuffer,mimeType) {
-                console.log(5)
+                for (var channel = 0; channel < numChannels; channel++) {
+                    recBuffers[channel].push(inputBuffer[channel]);
+                }
+                recLength += inputBuffer[0].length;
 
-
-                exportWAV(
-                    mimeType,
-                    recLength,
-                    recBuffers
-                );
             }
 
             function exportWAV(type,recLength,recBuffers) {
-                console.log(2)
                 let buffers = [];
                 for (let channel = 0; channel < numChannels; channel++) {
                     buffers.push(mergeBuffers(recBuffers[channel], recLength));
@@ -157,47 +120,7 @@ class Recorder {
                 }
                 let dataview = encodeWAV(interleaved);
                 let audioBlob = new Blob([dataview], {type: type});
-
-                var reader = new FileReader();
-                reader.readAsDataURL(audioBlob);
-                reader.onloadend = ()=> {
-                    // let data=new Uint8Array(reader.result)
-                    // ws.send(data)
-
-                    // console.log(reader.result);
-                    var base64data = reader.result.split(",")[1];
-                    // console.log( _convertB642AB(base64data))
-                    let arrayBuffer= _convertB642AB(base64data);
-                    console.log(arrayBuffer);
-                    dataAvailable(arrayBuffer);
-                    console.log(3)
-                    // this.ws.send(arrayBuffer)
-                };
-
-
                 this.postMessage({command: 'exportWAV', data: audioBlob});
-            }
-
-            function _convertB642AB(b64Data) {
-
-                const byteCharacters = b64Data;
-
-
-
-                var arrayBuffer = new ArrayBuffer(byteCharacters.length);
-
-                var byteNumbers = new Uint8Array(arrayBuffer);
-
-                for (let i = 0; i < byteCharacters.length; i++) {
-
-                    byteNumbers[i] = byteCharacters.charCodeAt(i);
-
-                }
-
-
-
-                return byteNumbers;
-
             }
 
             function getBuffer() {
@@ -205,7 +128,11 @@ class Recorder {
                 for (let channel = 0; channel < numChannels; channel++) {
                     buffers.push(mergeBuffers(recBuffers[channel], recLength));
                 }
+
+                clear();
+
                 this.postMessage({command: 'getBuffer', data: buffers});
+
             }
 
             function clear() {
@@ -295,15 +222,14 @@ class Recorder {
             }
         }, self);
 
-        let obj = JSON.parse(JSON.stringify({
+        this.worker.postMessage({
             command: 'init',
             config: {
                 sampleRate: 16000,//this.context.sampleRate,
                 numChannels: this.config.numChannels,
                 dataAvailable:this.config.dataAvailable
             }
-        }));
-        this.worker.postMessage(obj);
+        });
 
         this.worker.onmessage = (e) => {
             let cb = this.callbacks[e.data.command].pop();
