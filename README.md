@@ -4,6 +4,6 @@ Supporting code for [Recording audio with React for Amazon Lex](https://medium.c
 
 Recording audio with React, and converting it to a format for speech services such as Amazon Lex and Google Cloud.
 
-## [Recorder Component](src/Components/Recorder.js)
+## [Recorder_old Component](src/Components/Recorder_old.js)
 
 ## [Encoding Audio](src/utilities/audio.js)

@@ -1,13 +1,13 @@
 import React, { Component } from 'react';
 
-import Recorder from './Components/Recorder';
+import Recorder_old from './Components/Recorder_old';
 
 class App extends Component {
   render() {
     return (
       <div className="App">
         <h1>Recording in React</h1>
-        <Recorder />
+        <Recorder_old />
       </div>
     );
   }

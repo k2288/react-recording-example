@@ -106,7 +106,7 @@ function encodeWAV(samples) {
   view.setUint16(20, 1, true);
   view.setUint16(22, 1, true);
   view.setUint32(24, recordSampleRate, true);
-  view.setUint32(28, recordSampleRate * 2, true);
+  view.setUint32(28, recordSampleRate * 4, true);
   view.setUint16(32, 2, true);
   view.setUint16(34, 16, true);
   writeString(view, 36, 'data');
