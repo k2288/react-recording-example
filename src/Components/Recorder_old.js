@@ -33,7 +33,21 @@ class Recorder_old extends Component {
   }
 
   dataAvailable=(buffer)=>{
+    const audioBlob = exportBuffer(buffer[0]);
+    var reader = new FileReader();
+    reader.readAsDataURL(audioBlob);
+    reader.onloadend = ()=> {
+      // let data=new Uint8Array(reader.result)
+      // ws.send(data)
 
+      // console.log(reader.result);
+      let base64data = reader.result.split(",")[1];
+      // console.log( _convertB642AB(base64data))
+      let arrayBuffer= this._convertB642AB(base64data);
+      this.ws.send(arrayBuffer);
+      console.log(3)
+      // this.ws.send(arrayBuffer)
+    };
   };
 
    _convertB642AB=(b64Data)=> {
@@ -85,7 +99,7 @@ class Recorder_old extends Component {
           }
       );
 
-      setInterval(()=>{
+      this.interval= setInterval(()=>{
         recorder.getBuffer(buffer=>{
           const audioBlob = exportBuffer(buffer[0]);
           var reader = new FileReader();
@@ -103,7 +117,7 @@ class Recorder_old extends Component {
             // this.ws.send(arrayBuffer)
           };
         })
-      },2000)
+      },1500)
 
     };
 
@@ -117,7 +131,7 @@ class Recorder_old extends Component {
     };
 
     this.ws.onmessage=function (ev){
-      console.log(ev.data)
+      console.log(JSON.parse(ev.data).results[0].transcript)
     };
     // websocket onerror event listener
     this.ws.onerror = function(err){
@@ -135,6 +149,7 @@ class Recorder_old extends Component {
     const { recorder } = this.state;
 
     recorder.stop()
+    clearInterval(this.interval)
     // const audio = exportBuffer(buffer[0]);
 
     // Process the audio here.

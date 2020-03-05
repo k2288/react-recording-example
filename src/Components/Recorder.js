@@ -69,6 +69,7 @@ export class Recorder {
             let recLength = 0,
                 dataAvailable=null,
                 recBuffers = [],
+                data=[],
                 sampleRate,
                 numChannels;
 
@@ -93,6 +94,7 @@ export class Recorder {
             };
 
             function init(config) {
+                console.log(config.sampleRate);
                 sampleRate = config.sampleRate;
                 numChannels = config.numChannels;
                 dataAvailable=config.dataAvailable;
@@ -100,10 +102,13 @@ export class Recorder {
             }
 
             function record(inputBuffer,mimeType) {
+
+
                 for (var channel = 0; channel < numChannels; channel++) {
                     recBuffers[channel].push(inputBuffer[channel]);
                 }
                 recLength += inputBuffer[0].length;
+                // console.log(recBuffers,recLength)
 
             }
 
@@ -124,12 +129,17 @@ export class Recorder {
             }
 
             function getBuffer() {
+                // console.log(recBuffers,recLength)
+                let newReclength=16*4096;
                 let buffers = [];
                 for (let channel = 0; channel < numChannels; channel++) {
-                    buffers.push(mergeBuffers(recBuffers[channel], recLength));
+                    // console.log(recBuffers[channel].length,channel)
+                    let newRecBuffer=recBuffers[channel].splice(0,16);
+                    console.log(newRecBuffer);
+                    buffers.push(mergeBuffers(newRecBuffer, newReclength));
                 }
 
-                clear();
+                // clear();
 
                 this.postMessage({command: 'getBuffer', data: buffers});
 
@@ -225,7 +235,7 @@ export class Recorder {
         this.worker.postMessage({
             command: 'init',
             config: {
-                sampleRate: 16000,//this.context.sampleRate,
+                sampleRate: this.context.sampleRate,
                 numChannels: this.config.numChannels,
                 dataAvailable:this.config.dataAvailable
             }
@@ -246,6 +256,7 @@ export class Recorder {
     }
 
     stop() {
+        console.log("stop")
         this.audio_context.close().then(()=> {
             this.source = null;
             this.node = null;
